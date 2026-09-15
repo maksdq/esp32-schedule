@@ -324,20 +324,6 @@
       opacity: 0.9;
     }
 
-    /* Notice banner */
-    .alert {
-      background: rgba(56, 189, 248, 0.1);
-      border: 1px solid rgba(56, 189, 248, 0.25);
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 12px;
-      color: #7dd3fc;
-      margin-bottom: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
     .toast {
       position: fixed;
       top: 20px;
@@ -397,7 +383,6 @@
       { id: "6", name: "Неділя", short: "Нд", isWeekend: true }
     ];
 
-    // Default structure for schedule
     let state = {
       "pc1": {
         "name": "Основний ПК",
@@ -429,24 +414,38 @@
 
     let activePcId = "pc1";
 
-    // Try to load initial data from URL hash
+    function decodeB64Utf8(b64) {
+      try {
+        const bin = atob(b64);
+        const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+        return new TextDecoder("utf-8").decode(bytes);
+      } catch (e) {
+        try {
+          return decodeURIComponent(escape(atob(b64)));
+        } catch (e2) {
+          return atob(b64);
+        }
+      }
+    }
+
     function loadFromHash() {
       try {
         const hash = window.location.hash.substring(1);
         if (!hash) return;
         let jsonStr = "";
         if (hash.startsWith("data=")) {
-          const encoded = hash.substring(5);
-          jsonStr = decodeURIComponent(atob(encoded));
+          jsonStr = decodeB64Utf8(hash.substring(5));
         } else if (hash.startsWith("{")) {
           jsonStr = decodeURIComponent(hash);
         }
         if (jsonStr) {
           const parsed = JSON.parse(jsonStr);
-          if (typeof parsed === "object") {
-            // merge or replace
-            for (const k in parsed) {
-              state[k] = parsed[k];
+          if (parsed && typeof parsed === "object") {
+            const scheds = parsed.schedules || parsed;
+            for (const k in scheds) {
+              if (scheds[k] && typeof scheds[k] === "object") {
+                state[k] = scheds[k];
+              }
             }
           }
         }
@@ -456,7 +455,11 @@
     }
 
     function init() {
-      loadFromHash();
+      try {
+        loadFromHash();
+      } catch (e) {
+        console.error(e);
+      }
       renderTabs();
       renderActivePc();
     }
@@ -479,10 +482,9 @@
     }
 
     function renderActivePc() {
-      const pc = state[activePcId];
+      const pc = state[activePcId] || state["pc1"];
       if (!pc) return;
 
-      // Ensure structure integrity
       if (!pc.weeks || pc.weeks.length === 0) {
         pc.weeks = [{ name: "Тиждень 1", days: { "0": "07:00", "1": "07:00", "2": "07:00", "3": "07:00", "4": "07:00", "5": null, "6": null } }];
       }
@@ -524,9 +526,7 @@
         </div>
       `;
 
-      // Render weeks
       const numWeeks = pc.mode === "2_weeks" ? 2 : 1;
-      // Ensure weeks array has enough items
       while (pc.weeks.length < numWeeks) {
         const idx = pc.weeks.length + 1;
         pc.weeks.push({
@@ -639,7 +639,6 @@
     }
 
     function saveAllSchedules() {
-      // Build clean payload
       const payload = {
         type: "update_schedule",
         schedules: state
@@ -648,14 +647,10 @@
       const jsonStr = JSON.stringify(payload);
 
       if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
-        // Send via Telegram WebApp to ESP32 Bot!
         window.Telegram.WebApp.sendData(jsonStr);
       } else {
-        // Running in local browser outside Telegram
         showToast("✅ Розклад сформовано!");
-        console.log("Schedule Payload:", payload);
-        alert("Розклад збережено!
-При відкритті всередині Telegram ці дані будуть миттєво відправлені на ваш ESP32.");
+        alert("Розклад збережено! При відкритті в Telegram ці налаштування автоматично передаються на ESP32.");
       }
     }
 
