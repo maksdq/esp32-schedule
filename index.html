@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Розклад ПК — ESP32</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg-color: var(--tg-theme-bg-color, #0f172a);
+      --card-bg: var(--tg-theme-secondary-bg-color, #1e293b);
+      --text-color: var(--tg-theme-text-color, #f8fafc);
+      --hint-color: var(--tg-theme-hint-color, #94a3b8);
+      --primary: var(--tg-theme-button-color, #38bdf8);
+      --primary-text: var(--tg-theme-button-text-color, #0f172a);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --success: #22c55e;
+      --danger: #ef4444;
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      padding: 16px;
+      padding-bottom: 90px;
+      line-height: 1.5;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    header p {
+      font-size: 13px;
+      color: var(--hint-color);
+      margin-top: 4px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      background: var(--card-bg);
+      padding: 4px;
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      border: 1px solid var(--border-color);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      color: var(--hint-color);
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: var(--primary-text);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    /* Card */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Switches */
+    .switch-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 46px;
+      height: 26px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #475569;
+      transition: .3s;
+      border-radius: 26px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--success);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Mode selector */
+    .mode-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .mode-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+    }
+
+    .mode-option input[type="radio"] {
+      accent-color: var(--primary);
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Week card */
+    .week-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border-color);
+    }
+
+    .week-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .week-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    /* Presets */
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .preset-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 5px 9px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .preset-btn:active {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Day rows */
+    .day-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .day-row:last-child {
+      border-bottom: none;
+    }
+
+    .day-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .day-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .day-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--hint-color);
+    }
+
+    .day-badge.weekend {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+    }
+
+    .day-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .time-input {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      outline: none;
+      width: 95px;
+      text-align: center;
+    }
+
+    .time-input:disabled {
+      opacity: 0.3;
+    }
+
+    /* Save button bar */
+    .save-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--card-bg);
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-color);
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.3);
+      z-index: 100;
+    }
+
+    .save-btn {
+      width: 100%;
+      background: var(--primary);
+      color: var(--primary-text);
+      border: none;
+      padding: 14px;
+      border-radius: var(--radius);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+
+    .save-btn:active {
+      transform: scale(0.98);
+      opacity: 0.9;
+    }
+
+    /* Notice banner */
+    .alert {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #7dd3fc;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #22c55e;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="toast" class="toast">✅ Розклад збережено!</div>
+
+  <header>
+    <h1>📅 Розклад увімкнення ПК</h1>
+    <p>Налаштуйте час для кожного дня або створіть 2-тижневе чергування</p>
+  </header>
+
+  <div class="tabs" id="pcTabs"></div>
+
+  <div id="pcSettings">
+    <!-- Rendered dynamically -->
+  </div>
+
+  <div class="save-bar">
+    <button class="save-btn" id="saveBtn" onclick="saveAllSchedules()">💾 Зберегти розклад</button>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    const DAY_NAMES = [
+      { id: "0", name: "Понеділок", short: "Пн", isWeekend: false },
+      { id: "1", name: "Вівторок", short: "Вт", isWeekend: false },
+      { id: "2", name: "Середа", short: "Ср", isWeekend: false },
+      { id: "3", name: "Четвер", short: "Чт", isWeekend: false },
+      { id: "4", name: "П'ятниця", short: "Пт", isWeekend: false },
+      { id: "5", name: "Субота", short: "Сб", isWeekend: true },
+      { id: "6", name: "Неділя", short: "Нд", isWeekend: true }
+    ];
+
+    // Default structure for schedule
+    let state = {
+      "pc1": {
+        "name": "Основний ПК",
+        "enabled": true,
+        "mode": "2_weeks",
+        "weeks": [
+          {
+            "name": "Тиждень 1 (парний)",
+            "days": { "0": "07:00", "1": "07:00", "2": "07:00", "3": "07:00", "4": "07:00", "5": "10:00", "6": "10:00" }
+          },
+          {
+            "name": "Тиждень 2 (непарний)",
+            "days": { "0": "06:00", "1": "06:00", "2": "06:00", "3": "06:00", "4": "06:00", "5": "10:00", "6": "10:00" }
+          }
+        ]
+      },
+      "pc2": {
+        "name": "Другий ПК",
+        "enabled": false,
+        "mode": "1_week",
+        "weeks": [
+          {
+            "name": "Постійний розклад",
+            "days": { "0": "08:00", "1": "08:00", "2": "08:00", "3": "08:00", "4": "08:00", "5": null, "6": null }
+          }
+        ]
+      }
+    };
+
+    let activePcId = "pc1";
+
+    // Try to load initial data from URL hash
+    function loadFromHash() {
+      try {
+        const hash = window.location.hash.substring(1);
+        if (!hash) return;
+        let jsonStr = "";
+        if (hash.startsWith("data=")) {
+          const encoded = hash.substring(5);
+          jsonStr = decodeURIComponent(atob(encoded));
+        } else if (hash.startsWith("{")) {
+          jsonStr = decodeURIComponent(hash);
+        }
+        if (jsonStr) {
+          const parsed = JSON.parse(jsonStr);
+          if (typeof parsed === "object") {
+            // merge or replace
+            for (const k in parsed) {
+              state[k] = parsed[k];
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Could not parse hash data:", e);
+      }
+    }
+
+    function init() {
+      loadFromHash();
+      renderTabs();
+      renderActivePc();
+    }
+
+    function renderTabs() {
+      const tabsEl = document.getElementById("pcTabs");
+      tabsEl.innerHTML = "";
+      for (const pcId of Object.keys(state)) {
+        const pc = state[pcId];
+        const btn = document.createElement("button");
+        btn.className = "tab-btn " + (pcId === activePcId ? "active" : "");
+        btn.innerHTML = (pcId === "pc1" ? "💻 " : "🔘 ") + (pc.name || pcId);
+        btn.onclick = () => {
+          activePcId = pcId;
+          renderTabs();
+          renderActivePc();
+        };
+        tabsEl.appendChild(btn);
+      }
+    }
+
+    function renderActivePc() {
+      const pc = state[activePcId];
+      if (!pc) return;
+
+      // Ensure structure integrity
+      if (!pc.weeks || pc.weeks.length === 0) {
+        pc.weeks = [{ name: "Тиждень 1", days: { "0": "07:00", "1": "07:00", "2": "07:00", "3": "07:00", "4": "07:00", "5": null, "6": null } }];
+      }
+
+      const container = document.getElementById("pcSettings");
+      let html = "";
+
+      // Master switch card
+      html += `
+        <div class="card">
+          <div class="switch-container">
+            <div>
+              <div class="card-title">${activePcId === "pc1" ? "💻" : "🔘"} ${pc.name || activePcId}</div>
+              <p style="font-size:12px; color:var(--hint-color); margin-top:2px;">Автоматичне вмикання за розкладом</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="masterEnabled" ${pc.enabled ? "checked" : ""} onchange="toggleMaster(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="mode-selector" style="margin-top:16px;">
+            <div style="font-size:13px; font-weight:600; margin-bottom:4px;">Режим роботи:</div>
+            <label class="mode-option">
+              <input type="radio" name="mode_${activePcId}" value="1_week" ${pc.mode === "1_week" ? "checked" : ""} onchange="setMode('1_week')">
+              <div>
+                <div style="font-size:14px; font-weight:600;">1 тиждень (постійний)</div>
+                <div style="font-size:11px; color:var(--hint-color);">Однаковий розклад на кожний тиждень</div>
+              </div>
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="mode_${activePcId}" value="2_weeks" ${pc.mode === "2_weeks" ? "checked" : ""} onchange="setMode('2_weeks')">
+              <div>
+                <div style="font-size:14px; font-weight:600;">2 тижні (чергування парний / непарний)</div>
+                <div style="font-size:11px; color:var(--hint-color);">Тиждень 1 працює у парні тижні, Тиждень 2 — у непарні</div>
+              </div>
+            </label>
+          </div>
+        </div>
+      `;
+
+      // Render weeks
+      const numWeeks = pc.mode === "2_weeks" ? 2 : 1;
+      // Ensure weeks array has enough items
+      while (pc.weeks.length < numWeeks) {
+        const idx = pc.weeks.length + 1;
+        pc.weeks.push({
+          name: "Тиждень " + idx + (idx === 2 ? " (непарний)" : ""),
+          days: { "0": "06:00", "1": "06:00", "2": "06:00", "3": "06:00", "4": "06:00", "5": "10:00", "6": "10:00" }
+        });
+      }
+
+      for (let w = 0; w < numWeeks; w++) {
+        const week = pc.weeks[w];
+        const weekTitle = pc.mode === "2_weeks" 
+          ? (w === 0 ? "🗓️ Тиждень 1 (парний)" : "🗓️ Тиждень 2 (непарний)")
+          : "🗓️ Розклад на тиждень";
+
+        html += `
+          <div class="week-card">
+            <div class="week-header">
+              <span class="week-title">${weekTitle}</span>
+            </div>
+
+            <div class="presets">
+              <button class="preset-btn" onclick="applyPreset(${w}, '07:00')">⚡ Будні 07:00</button>
+              <button class="preset-btn" onclick="applyPreset(${w}, '08:00')">⚡ Будні 08:00</button>
+              <button class="preset-btn" onclick="applyWeekendPreset(${w}, '10:00')">⚡ Вихідні 10:00</button>
+              <button class="preset-btn" onclick="applyWeekendPreset(${w}, null)">❌ Без вихідних</button>
+            </div>
+
+            <div class="days-list">
+        `;
+
+        DAY_NAMES.forEach(d => {
+          const val = week.days && week.days[d.id] ? week.days[d.id] : null;
+          const isDayEnabled = val !== null && val !== "";
+          const timeVal = isDayEnabled ? val : (d.isWeekend ? "10:00" : "07:00");
+
+          html += `
+            <div class="day-row">
+              <div class="day-info">
+                <label class="switch" style="width:36px; height:20px;">
+                  <input type="checkbox" id="day_check_${w}_${d.id}" ${isDayEnabled ? "checked" : ""} onchange="toggleDay(${w}, '${d.id}', this.checked)">
+                  <span class="slider" style="border-radius:20px;"></span>
+                </label>
+                <div>
+                  <span class="day-name">${d.name}</span>
+                  <span class="day-badge ${d.isWeekend ? 'weekend' : ''}">${d.short}</span>
+                </div>
+              </div>
+              <div class="day-controls">
+                <input type="time" class="time-input" id="day_time_${w}_${d.id}" 
+                  value="${timeVal}" 
+                  ${!isDayEnabled ? "disabled" : ""} 
+                  onchange="updateTime(${w}, '${d.id}', this.value)">
+              </div>
+            </div>
+          `;
+        });
+
+        html += `
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function toggleMaster(enabled) {
+      state[activePcId].enabled = enabled;
+    }
+
+    function setMode(mode) {
+      state[activePcId].mode = mode;
+      renderActivePc();
+    }
+
+    function toggleDay(wIndex, dayId, isChecked) {
+      const timeInput = document.getElementById(`day_time_${wIndex}_${dayId}`);
+      if (isChecked) {
+        timeInput.disabled = false;
+        state[activePcId].weeks[wIndex].days[dayId] = timeInput.value || "07:00";
+      } else {
+        timeInput.disabled = true;
+        state[activePcId].weeks[wIndex].days[dayId] = null;
+      }
+    }
+
+    function updateTime(wIndex, dayId, timeValue) {
+      state[activePcId].weeks[wIndex].days[dayId] = timeValue;
+    }
+
+    function applyPreset(wIndex, time) {
+      for (let i = 0; i <= 4; i++) {
+        const dayId = String(i);
+        state[activePcId].weeks[wIndex].days[dayId] = time;
+      }
+      renderActivePc();
+    }
+
+    function applyWeekendPreset(wIndex, time) {
+      state[activePcId].weeks[wIndex].days["5"] = time;
+      state[activePcId].weeks[wIndex].days["6"] = time;
+      renderActivePc();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.innerText = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2500);
+    }
+
+    function saveAllSchedules() {
+      // Build clean payload
+      const payload = {
+        type: "update_schedule",
+        schedules: state
+      };
+
+      const jsonStr = JSON.stringify(payload);
+
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+        // Send via Telegram WebApp to ESP32 Bot!
+        window.Telegram.WebApp.sendData(jsonStr);
+      } else {
+        // Running in local browser outside Telegram
+        showToast("✅ Розклад сформовано!");
+        console.log("Schedule Payload:", payload);
+        alert("Розклад збережено!
+При відкритті всередині Telegram ці дані будуть миттєво відправлені на ваш ESP32.");
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
